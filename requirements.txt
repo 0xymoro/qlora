@@ -17,6 +17,6 @@ requests
 scikit-learn 
 sentencepiece 
 tqdm 
-transformers 
+transformers==4.37.2 
 wandb
 
