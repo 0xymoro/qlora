@@ -88,7 +88,7 @@ def main():
     model = PeftModel.from_pretrained(model=model, model_id=adapter_path)
     model = model.merge_and_unload()
     print("Successfully loaded and merged model, saving...")
-    model.save_pretrained(args.out, safe_serialization=True, max_shard_size='4GB')
+    model.save_pretrained(args.out, safe_serialization=True, max_shard_size='10GB')
     tokenizer.save_pretrained(args.out)
     config_data = json.loads(open(os.path.join(args.out, 'config.json'), 'r').read())
     config_data.pop("quantization_config", None)
