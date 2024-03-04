@@ -21,7 +21,7 @@ def get_args():
     parser.add_argument("--push", action="store_true")
     return parser.parse_args()
 
-def dequantize_model(model, tokenizer, to, dtype=torch.bfloat16, device="cuda"):
+def dequantize_model(model, tokenizer, to, dtype=torch.bfloat16, device="cpu"): # cpu for dequant but may mess with merge_and_unload
     """
     'model': the peftmodel you loaded with qlora.
     'tokenizer': the model's corresponding hf's tokenizer.
