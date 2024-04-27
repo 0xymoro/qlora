@@ -7,7 +7,6 @@ datasets
 deepspeed 
 einops 
 evaluate 
-faiss-gpu 
 flash_attn 
 huggingface-hub 
 loguru 
