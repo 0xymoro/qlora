@@ -34,10 +34,14 @@ def dequantize_model(model, tokenizer, to='./dequantized_model', dtype=torch.bfl
     'dtype': dtype that the model was trained using
     'device': device to load the model to
     """
+    if os.path.exists(to):
+        print(f"Model already dequantized at {to}, loading...")
+        model = AutoModelForCausalLM.from_pretrained(to, torch_dtype=dtype, device_map=device)
+        return model
 
     # Delete the model object if it exists
-    if os.path.exists(to):
-        shutil.rmtree(to)
+    print("Dequantizing and saving model...")
+    shutil.rmtree(to, ignore_errors=True)
 
     os.makedirs(to, exist_ok=True)
 
@@ -85,7 +89,7 @@ model = AutoModelForCausalLM.from_pretrained(
     #load_in_4bit=True,
     torch_dtype=torch.bfloat16,
     quantization_config=quantization_config,
-    device_map="auto"
+    device_map="cpu"
 )
 print(model)
 tok = AutoTokenizer.from_pretrained(model_path)
