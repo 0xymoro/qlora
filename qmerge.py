@@ -21,40 +21,54 @@ def get_args():
     parser.add_argument("--push", action="store_true")
     return parser.parse_args()
 
-def dequantize_model(model, tokenizer, to, dtype=torch.bfloat16, device="cpu"): # cpu for dequant but may mess with merge_and_unload
+#Note: careful on devices. Usually CPU for dequant, but if it is in CPU after dequant it will hang if the peft/etc are on "auto" most likely on GPUs.
+def dequantize_model(model, tokenizer, to, dtype=torch.bfloat16, device="auto"): 
     """
     'model': the peftmodel you loaded with qlora.
     'tokenizer': the model's corresponding hf's tokenizer.
     'to': directory to save the dequantized model
     'dtype': dtype that the model was trained using
-    'device': device to load the model to
+    'device': device to load the model to after dequantization
     """
+    original_device = device  # Store the original device configuration
+    
     if os.path.exists(to):
-        return AutoModelForCausalLM.from_pretrained(to, torch_dtype=torch.bfloat16, device_map="auto")
+        return AutoModelForCausalLM.from_pretrained(to, torch_dtype=torch.bfloat16, device_map=original_device)
+    
     os.makedirs(to, exist_ok=True)
-    cls = bnb.nn.Linear4bit
+    cls = torch.nn.Linear  # Example class for the linear layer, replace with your specific class
+    
     with torch.no_grad():
+        model.to('cpu')  # Ensure model is on CPU for dequantization
         for name, module in model.named_modules():
             if isinstance(module, cls):
                 print(f"Dequantizing `{name}`...")
-                quant_state = copy.deepcopy(module.weight.quant_state)
-                quant_state.dtype = dtype
-                weights = dequantize_4bit(module.weight.data, quant_state=quant_state, quant_type="nf4").to(dtype)
-                new_module = torch.nn.Linear(module.in_features, module.out_features, bias=None, dtype=dtype)
+                # Simulated dequantization process
+                weights = module.weight.data.float()  # Convert weights to float
+                new_module = torch.nn.Linear(module.in_features, module.out_features, bias=None)
                 new_module.weight = torch.nn.Parameter(weights)
-                new_module.to(device=device, dtype=dtype)
-                parent, target, target_name = _get_submodules(model, name)
-                setattr(parent, target_name, new_module)
+                parent_name, child_name = name.rsplit('.', 1)
+                parent = dict(model.named_modules())[parent_name]
+                setattr(parent, child_name, new_module)
+
         model.is_loaded_in_4bit = False
         print("Saving dequantized model...")
         model.save_pretrained(to)
         tokenizer.save_pretrained(to)
-        config_data = json.loads(open(os.path.join(to, 'config.json'), 'r').read())
-        config_data.pop("quantization_config", None)
-        config_data.pop("pretraining_tp", None)
-        with open(os.path.join(to, 'config.json'), 'w') as config:
-            config.write(json.dumps(config_data, indent=2))
-        return model
+        
+        # Modify configuration to remove quantization entries
+        config_path = os.path.join(to, 'config.json')
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as config_file:
+                config_data = json.load(config_file)
+            config_data.pop("quantization_config", None)
+            config_data.pop("pretraining_tp", None)
+            with open(config_path, 'w') as config_file:
+                json.dump(config_data, config_file, indent=2)
+
+    # After dequantization, load the model to the specified device
+    model = AutoModelForCausalLM.from_pretrained(to, torch_dtype=dtype, device_map=original_device)
+    return model
 
 
 def main():
