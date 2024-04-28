@@ -83,14 +83,15 @@ def main():
     )
     print(f"Loading base model: {model_path}")
     model = None
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
     if os.path.exists(f"{model_path}-dequantized"):
+        tokenizer = AutoTokenizer.from_pretrained(f"{model_path}-dequantized")
         model = AutoModelForCausalLM.from_pretrained(
             f"{model_path}-dequantized",
             torch_dtype=torch.bfloat16,
             device_map="auto",
         )
     else:
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
             load_in_4bit=True,
